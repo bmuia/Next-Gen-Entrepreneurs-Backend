@@ -14,6 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 import os
+from datetime import timedelta
 
 # Get the environment variables
 DB_NAME = os.getenv("DB_NAME")
@@ -47,6 +48,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'rest_framework',
+    'rest_framework_simplejwt',
+
+    'users',
+
 ]
 
 MIDDLEWARE = [
@@ -94,6 +101,33 @@ DATABASES = {
     }
 }
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+# Load keys
+with open(os.getenv("JWT_PRIVATE_KEY_PATH"), "r") as f:
+    JWT_PRIVATE_KEY = f.read()
+
+with open(os.getenv("JWT_PUBLIC_KEY_PATH"), "r") as f:
+    JWT_PUBLIC_KEY = f.read()
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'RS256',
+    'SIGNING_KEY': JWT_PRIVATE_KEY,   
+    'VERIFYING_KEY': JWT_PUBLIC_KEY,  
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}
+
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -135,3 +169,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+AUTH_USER_MODEL = 'users.CustomUser'
+
