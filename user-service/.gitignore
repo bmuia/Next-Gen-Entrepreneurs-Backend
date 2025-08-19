@@ -17,7 +17,7 @@
 *.sqlite3
 *.log
 *.pot
-*.pem
+/keys
 
 __pycache__/
 
