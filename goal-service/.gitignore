@@ -44,3 +44,5 @@ htmlcov/
 .coverage.*
 
 *.db
+/**/migrations/
+!/**/migrations/__init__.py
