@@ -5,19 +5,23 @@ from rest_framework.exceptions import AuthenticationFailed
 from decouple import config 
 
 class UserDict(dict):
-    """
-    A simple proxy class to make the JWT payload behave like a Django User object
-    for permission checks.
-    """
     def __init__(self, payload):
         super().__init__(payload)
-   
-        if 'user_id' in self:
+        self._id = None
+        if 'id' in self:
             try:
-                self['user_id'] = int(self['user_id'])
+                self._id = int(self['id'])
             except (ValueError, TypeError):
-                # Optionally handle this as an AuthenticationFailed exception
-                pass
+                self._id = None
+        elif 'user_id' in self:
+            try:
+                self._id = int(self['user_id'])
+            except (ValueError, TypeError):
+                self._id = None
+
+    @property
+    def id(self):
+        return self._id
 
     @property
     def is_authenticated(self):
@@ -26,6 +30,7 @@ class UserDict(dict):
     @property
     def is_anonymous(self):
         return False
+
 
 
 PUBLIC_KEY_CONTENT = config('PUBLIC_KEY')

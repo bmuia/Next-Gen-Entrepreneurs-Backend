@@ -1,3 +1,5 @@
+# views.py
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -6,8 +8,8 @@ from .models import Group, GroupMember, GroupEvent
 from kafka import KafkaProducer
 import json
 from datetime import datetime
-
-
+# Import the custom authentication class
+from .authentication import JWTAuthentication
 
 class GroupCreationView(APIView):
     """
@@ -17,11 +19,12 @@ class GroupCreationView(APIView):
     - Logs event in GroupEvent.
     - Publishes group_created event to Kafka.
     """
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         serializer = GroupSerializer(data=request.data)
         if serializer.is_valid():
-    
+            # request.user.id is now available
             group = serializer.save(
                 creator_id=request.user.id,
                 member_count=1
@@ -61,7 +64,6 @@ class GroupCreationView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class GroupJoinView(APIView):
     """
     Handles joining a group.
@@ -70,6 +72,7 @@ class GroupJoinView(APIView):
     - Logs join event.
     - Publishes user_joined event to Kafka.
     """
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         group_id = request.data.get('group_id')
@@ -82,14 +85,13 @@ class GroupJoinView(APIView):
         except Group.DoesNotExist:
             return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-      
+        # request.user.id is now available
         if GroupMember.objects.filter(group=group_obj, user_id=request.user.id).exists():
             return Response({'error': 'User already a member'}, status=status.HTTP_400_BAD_REQUEST)
 
         if group_obj.member_count >= 30:
             return Response({'error': 'Group is full'}, status=status.HTTP_400_BAD_REQUEST)
 
-      
         join = GroupMember.objects.create(
             group=group_obj,
             user_id=request.user.id,
@@ -124,34 +126,6 @@ class GroupJoinView(APIView):
             print(f"⚠️ Kafka error: {e}")
 
         return Response(GroupMemberSerializer(join).data, status=status.HTTP_201_CREATED)
-    
-
-class GroupLeaveView(APIView):
-
-    def post(self, request):
-
-        group_id = request.data.get('group_id')
-
-        if not group_id:
-            return Response({'error': 'group_id is required'},status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            group_obj = Group.objects.get(id=group_id)
-
-        except Group.DoesNotExist:
-            return Response({'error': 'group does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        
-        group_obj.member_count -= 1
-        group_obj.save()
-
-        GroupMember.objects.update(left_at=datetime.now())
-        GroupEvent.objects.create(
-            group=group_obj,
-            user_id=request.user.id,
-            event_type='left'
-        )
-
-from django.utils import timezone
 
 class GroupLeaveView(APIView):
     """
@@ -163,34 +137,31 @@ class GroupLeaveView(APIView):
     - Logs event.
     - Publishes user_left event to Kafka.
     """
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         group_id = request.data.get('group_id')
 
         if not group_id:
             return Response({'error': 'group_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-
       
         try:
             group_obj = Group.objects.get(id=group_id)
         except Group.DoesNotExist:
             return Response({'error': 'Group does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
- 
+        # request.user.id is now available
         try:
             membership = GroupMember.objects.get(group=group_obj, user_id=request.user.id, left_at__isnull=True)
         except GroupMember.DoesNotExist:
             return Response({'error': 'User is not a member of this group'}, status=status.HTTP_400_BAD_REQUEST)
 
-     
         membership.left_at = timezone.now()
         membership.save()
 
-       
         if group_obj.member_count > 0:
             group_obj.member_count -= 1
             group_obj.save()
-
 
         GroupEvent.objects.create(
             group=group_obj,
@@ -223,12 +194,12 @@ class GroupListView(APIView):
     Returns all groups the current user is a member of,
     along with group details and members/events.
     """
+    authentication_classes = [JWTAuthentication]
 
     def get(self, request):
-    
+        # request.user.id is now available
         memberships = GroupMember.objects.filter(user_id=request.user.id)
 
-      
         groups = Group.objects.filter(id__in=memberships.values_list('group_id', flat=True))
 
         serializer = GroupListSerializer(groups, many=True)
@@ -239,6 +210,7 @@ class GroupDetailView(APIView):
     """
     Returns details of a single group, including members and events.
     """
+    authentication_classes = [JWTAuthentication]
 
     def get(self, request, group_id):
         try:

@@ -1,5 +1,7 @@
-services:
+version: '3.9'
 
+services:
+  # Zookeeper
   zookeeper:
     image: bitnami/zookeeper:latest
     container_name: zookeeper
@@ -8,7 +10,7 @@ services:
     ports:
       - "2181:2181"
 
-
+  # Kafka
   kafka:
     image: bitnami/kafka:3.5.1
     container_name: kafka
@@ -23,111 +25,93 @@ services:
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - ALLOW_PLAINTEXT_LISTENER=yes
 
-
+  # Kafka UI
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
-    ports:
-      - "8081:8080"
     depends_on:
       - kafka
       - zookeeper
+    ports:
+      - "8081:8080"
     environment:
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
       - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
 
+  # Databases
   user-db:
-    image: postgres:13-alpine
+    image: postgres:15-alpine
     container_name: user-db
-    ports:
-      - "5432:5432"
+    env_file:
+      - .env.dev
     environment:
-      - POSTGRES_DB=user_service_db
-      - POSTGRES_USER=user_service_user
-      - POSTGRES_PASSWORD=user_service_password
+      - POSTGRES_DB=${POSTGRES_DB_USER}
+      - POSTGRES_USER=${POSTGRES_USER_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_USER}
     volumes:
       - user_postgres_data:/var/lib/postgresql/data/
 
-
   group-db:
-    image: postgres:13-alpine
+    image: postgres:15-alpine
     container_name: group-db
-    ports:
-      - "5433:5432" 
+    env_file:
+      - .env.dev
     environment:
-      - POSTGRES_DB=group_service_db
-      - POSTGRES_USER=group_service_user
-      - POSTGRES_PASSWORD=group_service_password
+      - POSTGRES_DB=${POSTGRES_DB_GROUP}
+      - POSTGRES_USER=${POSTGRES_USER_GROUP}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_GROUP}
     volumes:
       - group_postgres_data:/var/lib/postgresql/data/
 
   goal-db:
-    image: postgres:13-alpine
+    image: postgres:15-alpine
     container_name: goal-db
-    ports:
-      - "5434:5432"
+    env_file:
+      - .env.dev
     environment:
-      - POSTGRES_DB=goal_service_db
-      - POSTGRES_USER=goal_service_user
-      - POSTGRES_PASSWORD=goal_service_password
+      - POSTGRES_DB=${POSTGRES_DB_GOAL}
+      - POSTGRES_USER=${POSTGRES_USER_GOAL}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_GOAL}
     volumes:
       - goal_postgres_data:/var/lib/postgresql/data/
 
-
+  # Microservices
   user-service:
     build: ./user-service
     container_name: user-service
-    ports:
-      - "8001:8000"
     depends_on:
       - kafka
       - user-db
-    environment:
-      - DJANGO_SETTINGS_MODULE=user_service.settings
-      - POSTGRES_DB=user_service_db
-      - POSTGRES_USER=user_service_user
-      - POSTGRES_PASSWORD=user_service_password
-      - DB_HOST=user-db
-      - DB_PORT=5432
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env.dev
+      - ./user-service/.env
 
   group-service:
     build: ./group-service
     container_name: group-service
-    ports:
-      - "8002:8000"
     depends_on:
       - kafka
       - group-db
-    environment:
-      - DJANGO_SETTINGS_MODULE=group_service.settings
-      - POSTGRES_DB=group_service_db
-      - POSTGRES_USER=group_service_user
-      - POSTGRES_PASSWORD=group_service_password
-      - DB_HOST=group-db
-      - DB_PORT=5432
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-
+    ports:
+      - "8002:8000"
+    env_file:
+      - .env.dev
+      - ./group-service/.env
 
   goal-service:
     build: ./goal-service
     container_name: goal-service
-    ports:
-      - "8003:8000"
     depends_on:
       - kafka
       - goal-db
-    environment:
-      - DJANGO_SETTINGS_MODULE=goal_service.settings
-      - POSTGRES_DB=goal_service_db
-      - POSTGRES_USER=goal_service_user
-      - POSTGRES_PASSWORD=goal_service_password
-      - DB_HOST=goal-db
-      - DB_PORT=5432
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-
+    ports:
+      - "8003:8000"
+    env_file:
+      - .env.dev
+      - ./goal-service/.env
 
 volumes:
   user_postgres_data:

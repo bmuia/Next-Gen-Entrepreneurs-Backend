@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Python virtual environment
+venv/
+.venv/
+
+# Django cache and database
+__pycache__/
+*.pyc
+db.sqlite3
+
+# IDE and other temporary files
+.vscode/
+.idea/
+.DS_Store
+
+# Docker specific files
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Environment variables
+.env
